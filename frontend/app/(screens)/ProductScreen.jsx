@@ -1,0 +1,152 @@
+// import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Platfrom, SafeAreaView, SafeAreaViewBase } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Platform, SafeAreaView } from 'react-native'
+import React, {useState, useEffect} from 'react'
+import Toast from 'react-native-toast-message'
+import {useNavigation, useRoute} from '@react-navigation/native'
+import {useGetProductDetailsQuery} from '../../slices/productsApiSlice'
+import { Ionicons } from '@expo/vector-icons'
+import { Colors } from '../../constants/Utils'
+import { useSelector, useDispatch } from 'react-redux'
+import { addToCart } from '../../slices/carSlice.js'
+
+
+import Message from '../../components/Message.jsx'
+import ProductImageCard from '../../components/ProductImageCard.jsx'
+import ProductDetailsCard from '../../components/ProductDetailsCard.jsx'
+
+
+const ProductScreen = () => {
+
+    const route = useRoute();
+    const navigation = useNavigation();
+    const dispatch = useDispatch();
+    const {productId} = route.params;
+    const [qty, setQty] = useState(1);
+
+    useEffect(()=>{
+        if(!productId){
+            Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: "Product Id not Found, please try again or select a product from the list",
+                position: "top",
+                visibilityTime: 7000,
+            });
+
+            navigation.goBack();
+        }
+    }, [productId, navigation]);
+
+    const {
+        data: product,
+        isLoading,
+        refetch,
+        error,
+    } = useGetProductDetailsQuery(productId);
+
+    if (isLoading) {
+        return (
+            <View style={styles.center}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+        )
+    }
+
+    if(error){
+        const errorMessage = error?.data?.message || error.error;
+        return(
+            <View style={styles.center}>
+                <Message variant='error' >{error.message}</Message>
+                <TouchableOpacity omPress={()=>navigation.goBack()} style={styles.errorBackButton}>
+                    <Text style={styles.errorBackButton}>Go Back</Text>
+                </TouchableOpacity>
+            </View>
+        )
+    }
+
+    if(!product){
+        return(
+            <View style={styles.center}>
+                <Message variant="info">No product data available</Message>
+                <TouchableOpacity
+                    onPress={() => navigation.goBack()}
+                    style={styles.errorBackButton}
+                >
+                    <Text style={styles.errorBackButtonText}>Go back</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    const handleAddToCart = () => {
+        if(product){
+            dispatch(addToCart({...product, qty}))
+            navigation.navigate("(screens)/Cart")
+        }else{
+            Toast.show({
+                type:"error",
+                text1:"Error",
+                text2:"Product data not loaded yet. Cannot add to cart",
+                position:"top",
+                visibilityTime: 7000,
+            });
+        }
+    };
+
+    const disableAddToCart = product?.countInsStock === 0;
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+        <ScrollView contentContainerStyle={styles.container}>
+            <TouchableOpacity onPress={()=>navigation.goBack()} style={styles.backButton}>
+                <Ionicons name="arrow-back-circle" size={40} color={Colors.primary} />
+            </TouchableOpacity>
+            <ProductImageCard imageUrl={product.image} />
+            <ProductDetailsCard product={product} qty={qty} setQty={setQty} handleAddToCart={handleAddToCart} disableAddToCart={disableAddToCart} />
+        </ScrollView>
+    </SafeAreaView>
+  )
+}
+
+export default ProductScreen;
+
+const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor:Colors.offWhite,
+        // paddingTop: Platfrom.OS === "android" ? 25 : 0
+        paddingTop: Platform.OS === "android" ? 25 : 0
+    },
+    center:{
+        flex: 1,
+        justifyContent:"center",
+        alignItems: "center",
+        backgroundColor: Colors.offWhite,
+        padding: 20,
+    },
+    errorBackButton:{
+        backgroundColor: Colors.primary,
+        paddingVertical: 12,
+        paddingHorizontal: 25,
+        borderRadius: 10,
+        marginTop: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2},
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        elevation: 2
+    },
+    errorBackButton:{
+        color: Colors.white,
+        fontWeight: "600",
+        fontSize: 16,
+    },
+    container:{
+        padding: 18,
+        paddingBottom: 30,
+    },
+    backButton: {
+        marginVertical: 10,
+        alignSelf: "flex-start",
+    }
+})
